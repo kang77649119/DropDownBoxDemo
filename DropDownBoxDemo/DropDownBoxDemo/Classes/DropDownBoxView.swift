@@ -11,9 +11,9 @@ import UIKit
 private let DropDownBoxCellId = "DropDownBoxCellId"
 private let DropDownBoxViewH:CGFloat = 200
 
-protocol DropDownBoxViewDelegate : class {
+@objc protocol DropDownBoxViewDelegate : class {
     
-    func dropDownBoxClicked(info:String,finished:()->())
+    @objc optional func dropDownBoxClicked(referenceView:UIView, info:String, finished:()->())
     
 }
 
@@ -24,6 +24,10 @@ class DropDownBoxView: UIView {
             self.tableView.reloadData()
         }
     }
+    
+    var referenceView : UIView?
+    
+    var delegate : DropDownBoxViewDelegate?
     
     lazy var tableView : UITableView =  {
         
@@ -37,8 +41,6 @@ class DropDownBoxView: UIView {
         return tableView
     
     }()
-    
-    var delegate : DropDownBoxViewDelegate?
 
     override init(frame: CGRect) {
         
@@ -47,6 +49,23 @@ class DropDownBoxView: UIView {
         
         // 初始化UI
         setupUI()
+    }
+    
+    init(referenceView : UIView) {
+        
+        self.referenceView = referenceView
+        
+        let viewF = referenceView.frame
+        let viewFrame = CGRect(x: viewF.origin.x, y: viewF.maxY, width: viewF.width, height: DropDownBoxViewH)
+        super.init(frame: viewFrame)
+        
+        if referenceView.classForCoder == UITextField.classForCoder() {
+            (referenceView as! UITextField).delegate = self
+        }
+        
+        // 初始化UI
+        setupUI()
+        
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -86,9 +105,37 @@ extension DropDownBoxView : UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
         let info = self.datas![indexPath.row]
-        delegate?.dropDownBoxClicked(info: info, finished: { 
+        
+        guard let refView = self.referenceView else {
+            return
+        }
+        
+        // 文本框
+        if refView.classForCoder == UITextField.classForCoder() {
+            (refView as! UITextField).text = info
             self.isHidden = true
-        })
+        } else {
+            
+            // 非文本框
+            delegate?.dropDownBoxClicked!(referenceView: refView, info: info, finished: { 
+                self.isHidden = true
+            })
+            
+        }
+        
+    }
+
+}
+
+extension DropDownBoxView : UITextFieldDelegate {
+
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        
+        self.isHidden = !self.isHidden
+        self.tableView.scrollToRow(at: IndexPath(row: 0, section: 0), at: UITableViewScrollPosition.top, animated: true)
+        
+        return false
+        
     }
 
 }
